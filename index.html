@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Marca que hay JS ANTES de que se pinte el body. Sin esto, el contenido
+     arrancaría oculto y se quedaría oculto para siempre si el script no corre. -->
+<script>document.documentElement.className="js";</script>
+
+<title>EfectoLab — De la causa al efecto.</title>
+<meta name="description" content="Web, software y automatización. Hacemos que tu negocio surta efecto.">
+
+<link rel="canonical" href="https://efecto-lab.com/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://efecto-lab.com/">
+<meta property="og:site_name" content="EfectoLab">
+<meta property="og:locale" content="es_LA">
+<meta property="og:title" content="EfectoLab — De la causa al efecto.">
+<meta property="og:description" content="Web, software y automatización. Hacemos que tu negocio surta efecto.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#07090C">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2032%2032%27%3E%3Crect%20width%3D%2732%27%20height%3D%2732%27%20rx%3D%277%27%20fill%3D%27%2307090C%27%2F%3E%3Ccircle%20cx%3D%2716%27%20cy%3D%2716%27%20r%3D%279.5%27%20fill%3D%27none%27%20stroke%3D%27%23E9EDF0%27%20stroke-width%3D%271.6%27%20opacity%3D%27.55%27%2F%3E%3Ccircle%20cx%3D%2716%27%20cy%3D%2716%27%20r%3D%273.4%27%20fill%3D%27%23E9EDF0%27%2F%3E%3C%2Fsvg%3E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500&family=JetBrains+Mono:wght@400&display=swap">
+
+<style>
+/* Mientras Anton baja, el wordmark se pinta con el fallback. Sin ajustar,
+   "Arial Narrow" (que en muchas máquinas ni existe y cae a la sans por
+   defecto) mide 1195px donde Anton mide 797 — 50% más ancho, y como el
+   wordmark es nowrap, se sale de la pantalla en el primer pintado.
+   Impact mide 860: con size-adjust queda en 791 y el ancho no salta. */
+@font-face{
+  font-family:"Display Fallback";
+  src:local("Impact"),local("Haettenschweiler"),local("Arial Narrow Bold"),local("Arial Narrow");
+  size-adjust:92%;
+  font-weight:400;
+  font-style:normal;
+}
+
+:root{
+  --ink:#07090C;
+  --ink-2:#0D1116;
+  --text:#E9EDF0;
+  --muted:#8A959E;
+  --gutter:clamp(1.25rem,5vw,4rem);
+  --display:"Anton","Display Fallback",Impact,sans-serif;
+  --sans:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+
+html{-webkit-text-size-adjust:100%}
+
+body{
+  margin:0;
+  min-height:100vh;
+  min-height:100svh;
+  display:flex;
+  flex-direction:column;
+  padding:var(--gutter);
+  background:var(--ink);
+  color:var(--text);
+  font-family:var(--sans);
+  font-synthesis-weight:none;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+
+/* viñeta: empuja el foco al centro y evita que el campo se sienta plano */
+.haze{
+  position:fixed;
+  inset:0;
+  z-index:1;
+  pointer-events:none;
+  background:
+    radial-gradient(115% 85% at 50% 42%, transparent 0%, rgba(7,9,12,.55) 62%, var(--ink) 100%),
+    linear-gradient(to bottom, rgba(13,17,22,.9) 0%, transparent 22%, transparent 78%, rgba(7,9,12,.95) 100%);
+}
+
+/* ---- estructura ---- */
+
+/* Composición en diagonal: el descriptor arriba a la izquierda, el mail abajo
+   a la derecha, y el centro reservado para el único par que el documento de
+   marca prohíbe separar — el nombre y su bajada. */
+
+.stage{
+  position:relative;
+  z-index:2;
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+  padding-block:1.5rem;
+}
+
+.foot{
+  position:relative;
+  z-index:2;
+  display:flex;
+  justify-content:flex-end;
+}
+
+/* ---- wordmark provisorio ----
+   Sin logo todavía. Este bloque se reemplaza entero cuando exista
+   el sistema visual; nada más en la página depende de él. */
+
+.mark{
+  position:relative;
+  display:inline-block;
+  margin:0;
+  font-family:var(--display);
+  font-size:clamp(2.75rem,20vw,15rem);
+  font-weight:400;
+  line-height:.86;
+  letter-spacing:.005em;
+  text-transform:uppercase;
+  white-space:nowrap;
+  perspective:420px;          /* mas corta = la hendidura se nota de verdad */
+}
+
+/* Efecto = el resultado: macizo. Lab = el método: sólo la estructura. */
+.mark b{font-weight:inherit;font-style:normal}
+
+.mark i{
+  font-style:normal;
+  color:var(--text);
+  opacity:.42;                         /* si no hay text-stroke, al menos se distingue */
+}
+@supports ((-webkit-text-stroke:1px #000) or (text-stroke:1px #000)){
+  .mark i{
+    color:transparent;
+    opacity:1;
+    /* filete fino: si engorda, los contrapunzones de A y B se cierran
+       y LAB deja de leerse como estructura */
+    -webkit-text-stroke:max(1.5px,.011em) var(--text);
+    text-stroke:max(1.5px,.011em) var(--text);
+  }
+}
+
+/* Las letras se hunden bajo el cursor: la caja necesita conservar el 3D
+   para que el translateZ de cada letra tenga profundidad real. */
+.mark b,.mark i{
+  display:inline-block;
+  transform-style:preserve-3d;
+}
+.ch{
+  display:inline-block;
+  transform-style:preserve-3d;
+  will-change:transform;
+}
+
+/* Cortocircuito: 96% del ciclo no pasa nada. El corte dura ~0,5s y llega
+   cada 9s. EFECTO y LAB saltan en sentidos opuestos: eso es lo que lee como
+   mala senal y no como una animacion.
+
+   Nada de `opacity` aca: animar la opacidad de estos dos elementos obliga al
+   navegador a aplanar el 3D, y las letras dejan de hundirse. El apagon se
+   hace con color, que no toca el compositing. */
+.mark b{
+  animation:tear 9s steps(1,end) infinite,
+            cut-a 9s steps(1,end) infinite;
+}
+.mark i{
+  animation:tear-b 9s steps(1,end) infinite,
+            cut-b 9s steps(1,end) infinite,
+            surge 9s steps(1,end) infinite;
+}
+
+@keyframes tear{
+  0%,92%,100%{ transform:translate3d(0,0,0) }
+  92.4%{ transform:translate3d(-6px,0,0) }
+  92.9%{ transform:translate3d(5px,-2px,0) }
+  93.4%{ transform:translate3d(-3px,1px,0) }
+  93.9%{ transform:translate3d(0,0,0) }
+  96.6%{ transform:translate3d(2px,0,0) }
+  96.9%{ transform:translate3d(0,0,0) }
+}
+@keyframes tear-b{
+  0%,92%,100%{ transform:translate3d(0,0,0) }
+  92.4%{ transform:translate3d(7px,1px,0) }
+  92.9%{ transform:translate3d(-6px,0,0) }
+  93.4%{ transform:translate3d(4px,-1px,0) }
+  93.9%{ transform:translate3d(0,0,0) }
+  96.6%{ transform:translate3d(-3px,0,0) }
+  96.9%{ transform:translate3d(0,0,0) }
+}
+
+/* el apagon: la senal se cae por un instante */
+@keyframes cut-a{
+  0%,92%,100%{ color:var(--text) }
+  92.4%{ color:#2b323a }
+  92.9%{ color:var(--text) }
+  93.4%{ color:#12171d }
+  93.9%{ color:var(--text) }
+  96.6%{ color:#0c1015 }
+  96.9%{ color:var(--text) }
+}
+@keyframes cut-b{
+  0%,92%,100%{ -webkit-text-stroke-color:var(--text) }
+  92.4%{ -webkit-text-stroke-color:#1b2129 }
+  92.9%{ -webkit-text-stroke-color:var(--text) }
+  93.4%{ -webkit-text-stroke-color:#2b323a }
+  93.9%{ -webkit-text-stroke-color:var(--text) }
+  96.6%{ -webkit-text-stroke-color:#0c1015 }
+  96.9%{ -webkit-text-stroke-color:var(--text) }
+}
+/* la subida de tension: el filete de LAB se llena por un instante */
+@keyframes surge{
+  0%,92%,100%{ -webkit-text-fill-color:transparent }
+  92.6%{ -webkit-text-fill-color:rgba(233,237,240,.9) }
+  93.1%{ -webkit-text-fill-color:transparent }
+  96.7%{ -webkit-text-fill-color:rgba(233,237,240,.4) }
+  97%  { -webkit-text-fill-color:transparent }
+}
+
+/* La bajada no es un epígrafe: es la que define la categoría.
+   Va grande y pegada al wordmark para que se lean como una sola unidad. */
+.sign{
+  margin:clamp(.7rem,1.4vw,1.05rem) 0 0;
+  font-size:clamp(1.05rem,3.2vw,2.1rem);
+  font-weight:400;
+  color:var(--text);
+  opacity:.9;
+  letter-spacing:-.01em;
+}
+
+/* Estado, no promesa: dice cuándo, no se felicita a sí mismo. */
+.soon{
+  display:flex;
+  align-items:center;
+  gap:.6em;
+  margin:clamp(1.6rem,3.4vw,2.4rem) 0 0;
+  font-family:var(--mono);
+  font-size:clamp(.58rem,1.2vw,.7rem);
+  text-transform:uppercase;
+  letter-spacing:.24em;
+  color:var(--muted);
+}
+.soon .dot{
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:var(--text);
+  opacity:.5;
+  animation:breathe 3.4s ease-in-out infinite;
+}
+@keyframes breathe{
+  0%,100%{opacity:.18;transform:scale(.8)}
+  50%    {opacity:.75;transform:scale(1)}
+}
+
+.desc{
+  position:relative;
+  z-index:2;
+  margin:0;
+  font-family:var(--mono);
+  font-size:clamp(.58rem,1.2vw,.7rem);
+  line-height:1.7;
+  text-transform:uppercase;
+  letter-spacing:.24em;
+  color:var(--muted);
+}
+
+.mail{
+  font-family:var(--mono);
+  font-size:clamp(.58rem,1.2vw,.7rem);
+  text-transform:uppercase;
+  letter-spacing:.16em;
+  color:var(--muted);
+  text-decoration:none;
+  padding:.5rem .15rem;
+  border-radius:2px;
+  transition:color .25s ease;
+}
+.mail span{
+  display:inline-block;
+  padding-bottom:.28rem;
+  background-image:linear-gradient(var(--text),var(--text));
+  background-repeat:no-repeat;
+  background-position:0 100%;
+  background-size:0% 1px;
+  transition:background-size .35s cubic-bezier(.2,.7,.2,1);
+}
+.mail:hover,.mail:focus-visible{color:var(--text)}
+.mail:hover span,.mail:focus-visible span{background-size:100% 1px}
+.mail:focus-visible{outline:1px solid var(--text);outline-offset:6px}
+
+/* ---- carga: el contenido se revela detrás del frente de onda ---- */
+
+/* Sólo se esconde si hay JS para volver a mostrarlo. */
+.js .reveal{opacity:0;transform:translateY(14px)}
+.ready .reveal{
+  opacity:1;
+  transform:none;
+  /* color va incluido: si no, esta regla pisa la transition propia de .mail
+     y el hover pasa a cambiar de color de golpe. */
+  transition:opacity .9s ease, transform .9s cubic-bezier(.2,.7,.2,1), color .25s ease;
+}
+.ready .mark{transition-delay:.38s}
+.ready .sign{transition-delay:.54s}
+.ready .soon{transition-delay:.7s}
+.ready .desc{transition-delay:.86s}
+.ready .mail{transition-delay:1s}
+
+/* En pantallas angostas la diagonal deja de leerse: todo se centra. */
+@media (max-width:560px){
+  .desc{text-align:center;letter-spacing:.18em}
+  .foot{justify-content:center}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .js .reveal{opacity:1;transform:none}
+  .ready .reveal{transition:none}
+  .mail span{transition:none}
+  .mark b,.mark i{animation:none}
+  .soon .dot{animation:none;opacity:.5}
+}
+</style>
+</head>
+
+<body>
+  <div class="haze" aria-hidden="true"></div>
+
+  <p class="desc reveal">Web, software y automatización</p>
+
+  <main class="stage">
+    <h1 class="mark reveal"><b>Efecto</b><i>Lab</i></h1>
+    <p class="sign reveal">De la causa al efecto.</p>
+    <p class="soon reveal"><span class="dot" aria-hidden="true"></span>Próximamente</p>
+  </main>
+
+  <footer class="foot">
+    <a class="mail reveal" href="mailto:hola@efecto-lab.com"><span>hola@efecto-lab.com</span></a>
+  </footer>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- revelado ----
+  // Tres disparadores a proposito: si rAF no corre (pestana en segundo plano
+  // al cargar, webview, prerender) el contenido NO puede quedar invisible.
+  function reveal(){ document.body.classList.add("ready"); }
+  requestAnimationFrame(reveal);
+  addEventListener("load", reveal);
+  setTimeout(reveal, 500);
+
+  // ---- el wordmark se hunde bajo el cursor ----
+  var mark = document.querySelector(".mark");
+  if(!mark) return;
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if(!matchMedia("(hover: hover) and (pointer: fine)").matches) return;   // sin cursor no hay causa
+
+  // DEPTH manda todo el efecto. Mucho mas alto y las letras encogen tanto
+  // que se abren huecos y el wordmark se lee roto: es la marca, no un juguete.
+  var DEPTH = 78;    // px que se hunde la letra justo bajo el cursor
+  var SIGMA = 130;   // px: que tan ancha es la hendidura
+  var EASE  = 0.16;  // cuanto se acerca por frame al objetivo
+
+  // Partir en letras conservando cada parte: <b> macizo, <i> filete.
+  // Si este script no corre, el wordmark se ve igual, sin hundirse.
+  var letters = [];
+  Array.prototype.forEach.call(mark.children, function(part){
+    var text = part.textContent, frag = document.createDocumentFragment();
+    part.textContent = "";
+    for(var i = 0; i < text.length; i++){
+      var span = document.createElement("span");
+      span.className = "ch";
+      span.textContent = text.charAt(i);
+      frag.appendChild(span);
+      letters.push({ el: span, z: 0, cx: 0, cy: 0 });
+    }
+    part.appendChild(frag);
+  });
+  if(!letters.length) return;
+
+  // `have` dice si hay cursor. Antes usaba px=-1e5 como centinela de "sin
+  // cursor", pero el punto de fuga tambien se iba a esa coordenada y cualquier
+  // z residual proyectaba las letras fuera de la pantalla. El centinela y el
+  // punto de fuga tienen que ser cosas distintas.
+  var raf = null, px = 0, py = 0, have = false;
+  var ox = 0, oy = 0, oReady = false;
+  var box = null;
+
+  // Se mide con las transformaciones en cero: si no, el translateZ ya aplicado
+  // encoge el rect por perspectiva y el centro se corre en cada medicion.
+  function measure(){
+    for(var i = 0; i < letters.length; i++) letters[i].el.style.transform = "";
+    box = mark.getBoundingClientRect();
+    for(var j = 0; j < letters.length; j++){
+      var r = letters[j].el.getBoundingClientRect();
+      letters[j].cx = r.left + r.width / 2;
+      letters[j].cy = r.top + r.height / 2;
+    }
+  }
+
+  function frame(){
+    // Sin cursor el punto de fuga vuelve al centro del wordmark, nunca a un
+    // infinito lejano. Y se acota a la caja: un punto de fuga muy afuera
+    // deforma las letras en diagonal en vez de hundirlas.
+    var cx = box.left + box.width / 2, cy = box.top + box.height / 2;
+    var tx = have ? Math.max(box.left - box.width * 0.3,
+                    Math.min(box.right + box.width * 0.3, px)) : cx;
+    var ty = have ? Math.max(box.top - box.height * 1.5,
+                    Math.min(box.bottom + box.height * 1.5, py)) : cy;
+
+    if(!oReady){ ox = tx; oy = ty; oReady = true; }
+    ox += (tx - ox) * EASE;
+    oy += (ty - oy) * EASE;
+    mark.style.perspectiveOrigin =
+      (ox - box.left).toFixed(1) + "px " + (oy - box.top).toFixed(1) + "px";
+
+    var moving = Math.abs(tx - ox) > 0.4 || Math.abs(ty - oy) > 0.4;
+
+    for(var i = 0; i < letters.length; i++){
+      var L = letters[i], want = 0;
+      if(have){
+        var dx = L.cx - px, dy = L.cy - py;
+        want = -DEPTH * Math.exp(-(dx * dx + dy * dy) / (2 * SIGMA * SIGMA));
+      }
+      L.z += (want - L.z) * EASE;
+      if(Math.abs(want - L.z) > 0.1) moving = true;
+      else L.z = want;                      // que asiente exacto, sin cola infinita
+      L.el.style.transform = L.z ? "translateZ(" + L.z.toFixed(2) + "px)" : "";
+    }
+
+    // quieto y sin nada que perseguir: se corta el rAF, idle en cero
+    raf = moving ? requestAnimationFrame(frame) : null;
+  }
+
+  function kick(){ if(raf === null) raf = requestAnimationFrame(frame); }
+
+  function leave(){ have = false; kick(); }
+
+  measure();
+
+  addEventListener("pointermove", function(e){
+    px = e.clientX; py = e.clientY; have = true;
+    kick();
+  }, { passive: true });
+
+  document.addEventListener("pointerleave", leave);
+  addEventListener("blur", leave);
+
+  var rt;
+  addEventListener("resize", function(){
+    clearTimeout(rt);
+    rt = setTimeout(function(){ measure(); kick(); }, 160);
+  });
+})();
+</script>
+</body>
+</html>

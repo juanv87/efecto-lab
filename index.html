@@ -82,6 +82,30 @@ body{
     linear-gradient(to bottom, rgba(13,17,22,.9) 0%, transparent 22%, transparent 78%, rgba(7,9,12,.95) 100%);
 }
 
+/* Resplandor que sigue al cursor, por detras de la tipografia. Es un
+   radial-gradient, no un filter:blur — el degradado YA es suave y ahorra
+   rasterizar un desenfoque de pantalla completa en cada frame.
+   Se ve a traves de los contrapunzones de LAB, que es hueco. */
+.glow{
+  position:fixed;
+  left:0;
+  top:0;
+  width:52vmax;
+  height:52vmax;
+  margin:-26vmax 0 0 -26vmax;
+  z-index:1;
+  pointer-events:none;
+  border-radius:50%;
+  background:radial-gradient(closest-side,
+    rgba(233,237,240,.13),
+    rgba(233,237,240,.055) 42%,
+    rgba(233,237,240,.014) 66%,
+    transparent 78%);
+  opacity:0;
+  transition:opacity .5s ease;
+  will-change:transform;
+}
+
 /* ---- estructura ---- */
 
 /* Composición en diagonal: el descriptor arriba a la izquierda, el mail abajo
@@ -122,7 +146,8 @@ body{
   letter-spacing:.005em;
   text-transform:uppercase;
   white-space:nowrap;
-  perspective:420px;          /* mas corta = la hendidura se nota de verdad */
+  transform-origin:50% 50%;
+  will-change:transform;
 }
 
 /* Efecto = el resultado: macizo. Lab = el método: sólo la estructura. */
@@ -144,17 +169,13 @@ body{
   }
 }
 
-/* Las letras se hunden bajo el cursor: la caja necesita conservar el 3D
-   para que el translateZ de cada letra tenga profundidad real. */
-.mark b,.mark i{
-  display:inline-block;
-  transform-style:preserve-3d;
-}
-.ch{
-  display:inline-block;
-  transform-style:preserve-3d;
-  will-change:transform;
-}
+/* .mark NO lleva .reveal: esa clase define `transition: transform .9s` para
+   la entrada, y transicionaba tambien el transform que el script escribe en
+   cada frame — la inclinacion tardaba casi un segundo en responder. La
+   entrada va en .mark-wrap; la inclinacion, en .mark. No mezclar. */
+
+/* inline-block para que el cortocircuito pueda transformarlas */
+.mark b,.mark i{ display:inline-block }
 
 /* Cortocircuito: 96% del ciclo no pasa nada. El corte dura ~0,5s y llega
    cada 9s. EFECTO y LAB saltan en sentidos opuestos: eso es lo que lee como
@@ -303,7 +324,7 @@ body{
      y el hover pasa a cambiar de color de golpe. */
   transition:opacity .9s ease, transform .9s cubic-bezier(.2,.7,.2,1), color .25s ease;
 }
-.ready .mark{transition-delay:.38s}
+.ready .mark-wrap{transition-delay:.38s}
 .ready .sign{transition-delay:.54s}
 .ready .soon{transition-delay:.7s}
 .ready .desc{transition-delay:.86s}
@@ -327,11 +348,14 @@ body{
 
 <body>
   <div class="haze" aria-hidden="true"></div>
+  <div class="glow" aria-hidden="true"></div>
 
   <p class="desc reveal">Web, software y automatización</p>
 
   <main class="stage">
-    <h1 class="mark reveal"><b>Efecto</b><i>Lab</i></h1>
+    <div class="mark-wrap reveal">
+      <h1 class="mark"><b>Efecto</b><i>Lab</i></h1>
+    </div>
     <p class="sign reveal">De la causa al efecto.</p>
     <p class="soon reveal"><span class="dot" aria-hidden="true"></span>Próximamente</p>
   </main>
@@ -352,97 +376,99 @@ body{
   addEventListener("load", reveal);
   setTimeout(reveal, 500);
 
-  // ---- el wordmark se hunde bajo el cursor ----
+  // ---- el wordmark se hunde entero bajo el cursor ----
   var mark = document.querySelector(".mark");
+  var glow = document.querySelector(".glow");
   if(!mark) return;
   if(matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   if(!matchMedia("(hover: hover) and (pointer: fine)").matches) return;   // sin cursor no hay causa
 
-  // DEPTH manda todo el efecto. Mucho mas alto y las letras encogen tanto
-  // que se abren huecos y el wordmark se lee roto: es la marca, no un juguete.
-  var DEPTH = 78;    // px que se hunde la letra justo bajo el cursor
-  var SIGMA = 130;   // px: que tan ancha es la hendidura
-  var EASE  = 0.16;  // cuanto se acerca por frame al objetivo
+  // Se inclina la palabra completa, no letra por letra: transformar cada letra
+  // no reflowea el layout, asi que al encoger se abrian huecos y el wordmark
+  // se leia roto. Como plano entero no hay huecos posibles.
+  var TILT  = 14;    // grados maximos de inclinacion
+  var DIP   = 52;    // px que se hunde el plano bajo el cursor
+  var SIGMA = 300;   // px: hasta donde llega la influencia del cursor
+  // Constantes de tiempo, no fracciones por frame: asi el efecto dura lo mismo
+  // en una pantalla de 60Hz que en una de 120Hz.
+  var TAU      = 62;   // ms; ~95% del recorrido en 190ms
+  var TAU_GLOW = 105;  // el resplandor va un paso atras a proposito
 
-  // Partir en letras conservando cada parte: <b> macizo, <i> filete.
-  // Si este script no corre, el wordmark se ve igual, sin hundirse.
-  var letters = [];
-  Array.prototype.forEach.call(mark.children, function(part){
-    var text = part.textContent, frag = document.createDocumentFragment();
-    part.textContent = "";
-    for(var i = 0; i < text.length; i++){
-      var span = document.createElement("span");
-      span.className = "ch";
-      span.textContent = text.charAt(i);
-      frag.appendChild(span);
-      letters.push({ el: span, z: 0, cx: 0, cy: 0 });
-    }
-    part.appendChild(frag);
-  });
-  if(!letters.length) return;
-
-  // `have` dice si hay cursor. Antes usaba px=-1e5 como centinela de "sin
-  // cursor", pero el punto de fuga tambien se iba a esa coordenada y cualquier
-  // z residual proyectaba las letras fuera de la pantalla. El centinela y el
-  // punto de fuga tienen que ser cosas distintas.
   var raf = null, px = 0, py = 0, have = false;
-  var ox = 0, oy = 0, oReady = false;
-  var box = null;
+  var rx = 0, ry = 0, tz = 0, gx = 0, gy = 0, gReady = false;
+  var box = null, lastT = 0;
 
-  // Se mide con las transformaciones en cero: si no, el translateZ ya aplicado
-  // encoge el rect por perspectiva y el centro se corre en cada medicion.
   function measure(){
-    for(var i = 0; i < letters.length; i++) letters[i].el.style.transform = "";
+    var prev = mark.style.transform;
+    mark.style.transform = "";        // medir sin la inclinacion puesta
     box = mark.getBoundingClientRect();
-    for(var j = 0; j < letters.length; j++){
-      var r = letters[j].el.getBoundingClientRect();
-      letters[j].cx = r.left + r.width / 2;
-      letters[j].cy = r.top + r.height / 2;
-    }
+    mark.style.transform = prev;
   }
 
-  function frame(){
-    // Sin cursor el punto de fuga vuelve al centro del wordmark, nunca a un
-    // infinito lejano. Y se acota a la caja: un punto de fuga muy afuera
-    // deforma las letras en diagonal en vez de hundirlas.
-    var cx = box.left + box.width / 2, cy = box.top + box.height / 2;
-    var tx = have ? Math.max(box.left - box.width * 0.3,
-                    Math.min(box.right + box.width * 0.3, px)) : cx;
-    var ty = have ? Math.max(box.top - box.height * 1.5,
-                    Math.min(box.bottom + box.height * 1.5, py)) : cy;
+  function frame(now){
+    var dt = lastT ? Math.min(64, now - lastT) : 16;   // acotado por si vuelve de estar oculta
+    lastT = now;
+    var k  = 1 - Math.exp(-dt / TAU);
+    var kg = 1 - Math.exp(-dt / TAU_GLOW);
 
-    if(!oReady){ ox = tx; oy = ty; oReady = true; }
-    ox += (tx - ox) * EASE;
-    oy += (ty - oy) * EASE;
-    mark.style.perspectiveOrigin =
-      (ox - box.left).toFixed(1) + "px " + (oy - box.top).toFixed(1) + "px";
+    var cx = box.left + box.width / 2;
+    var cy = box.top + box.height / 2;
+    var wrx = 0, wry = 0, wtz = 0;
 
-    var moving = Math.abs(tx - ox) > 0.4 || Math.abs(ty - oy) > 0.4;
-
-    for(var i = 0; i < letters.length; i++){
-      var L = letters[i], want = 0;
-      if(have){
-        var dx = L.cx - px, dy = L.cy - py;
-        want = -DEPTH * Math.exp(-(dx * dx + dy * dy) / (2 * SIGMA * SIGMA));
-      }
-      L.z += (want - L.z) * EASE;
-      if(Math.abs(want - L.z) > 0.1) moving = true;
-      else L.z = want;                      // que asiente exacto, sin cola infinita
-      L.el.style.transform = L.z ? "translateZ(" + L.z.toFixed(2) + "px)" : "";
+    if(have){
+      var dx = px - cx, dy = py - cy;
+      // cerca del wordmark el efecto es pleno; lejos se apaga solo
+      var near = Math.exp(-(dx * dx + dy * dy) / (2 * SIGMA * SIGMA));
+      var nx = Math.max(-1, Math.min(1, dx / (box.width  / 2)));
+      var ny = Math.max(-1, Math.min(1, dy / (box.height / 2)));
+      // el lado donde esta el cursor es el que se va para atras
+      wry =  nx * TILT * near;
+      wrx = -ny * TILT * near;
+      wtz = -DIP * near;
     }
 
-    // quieto y sin nada que perseguir: se corta el rAF, idle en cero
-    raf = moving ? requestAnimationFrame(frame) : null;
+    rx += (wrx - rx) * k;
+    ry += (wry - ry) * k;
+    tz += (wtz - tz) * k;
+
+    var moving = Math.abs(wrx - rx) > 0.02 ||
+                 Math.abs(wry - ry) > 0.02 ||
+                 Math.abs(wtz - tz) > 0.05;
+    if(!moving){ rx = wrx; ry = wry; tz = wtz; }   // asentar exacto, sin cola infinita
+
+    mark.style.transform =
+      "perspective(700px) rotateX(" + rx.toFixed(3) + "deg) rotateY(" + ry.toFixed(3) +
+      "deg) translateZ(" + tz.toFixed(2) + "px)";
+
+    if(glow){
+      if(!gReady){ gx = px; gy = py; gReady = true; }
+      gx += (px - gx) * kg;
+      gy += (py - gy) * kg;
+      glow.style.transform = "translate3d(" + gx.toFixed(1) + "px," + gy.toFixed(1) + "px,0)";
+      if(Math.abs(px - gx) > 0.5 || Math.abs(py - gy) > 0.5) moving = true;
+    }
+
+    if(moving){
+      raf = requestAnimationFrame(frame);
+    }else{
+      raf = null;
+      lastT = 0;      // al reanudar, que no vea un dt gigante
+    }
   }
 
   function kick(){ if(raf === null) raf = requestAnimationFrame(frame); }
 
-  function leave(){ have = false; kick(); }
+  function leave(){
+    have = false;
+    if(glow) glow.style.opacity = "0";
+    kick();
+  }
 
   measure();
 
   addEventListener("pointermove", function(e){
-    px = e.clientX; py = e.clientY; have = true;
+    px = e.clientX; py = e.clientY;
+    if(!have){ have = true; if(glow) glow.style.opacity = "1"; }
     kick();
   }, { passive: true });
 

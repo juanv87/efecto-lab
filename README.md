@@ -19,38 +19,45 @@ py -m http.server 8000    # o: npx serve .
 
 `index.html` contiene el markup, los estilos y el campo reactivo del fondo.
 
-Dos efectos, los dos sobre el wordmark. El fondo quedo liso a proposito: la
-audacia se gasta en un solo lugar.
+Tres efectos, los tres sobre el wordmark. El fondo quedo liso a proposito:
+la audacia se gasta en un solo lugar.
 
-- **La hendidura.** Al pasar el cursor, las letras cercanas se hunden hacia
-  atras siguiendo una campana de Gauss, y el punto de fuga persigue al puntero
-  para que la letra se vaya derecho para atras y no hacia el centro. El cursor
-  es la causa; la deformacion es el efecto.
+- **La hendidura.** Al pasar el cursor, el wordmark **entero** se inclina como
+  un plano: el lado donde esta el cursor se va para atras. La influencia cae
+  con una campana de Gauss, asi que lejos del wordmark el efecto se apaga solo.
 
-  `DEPTH` manda todo: mas alto y las letras encogen tanto que se abren huecos
-  y el wordmark se lee roto. 78px deja la letra bajo el cursor al 0,84 de
-  escala aparente, que se nota sin romper la palabra.
+  Se inclina la palabra completa y no letra por letra a proposito: transformar
+  cada letra no reflowea el layout, asi que al encoger se abrian huecos entre
+  letras y el wordmark se leia roto. Como plano entero no hay huecos posibles.
+
+  Se regula con `TILT` (grados), `DIP` (px que se hunde) y la `perspective()`
+  del transform. Perspectiva mas corta = efecto mas marcado.
+
+- **El resplandor.** Un halo suave que sigue al cursor por detras de la
+  tipografia, un paso atras de el. Es un `radial-gradient`, no un
+  `filter:blur`: el degradado ya es suave y evita rasterizar un desenfoque de
+  pantalla completa en cada frame. Se ve a traves de los contrapunzones de
+  `LAB`, que es hueco.
 
 - **El cortocircuito.** El 96% del ciclo no pasa nada. Cada 9s hay una rafaga
   de ~0,5s: `EFECTO` y `LAB` saltan en sentidos opuestos, el color cae casi al
   fondo, y el filete de `LAB` se llena por un instante como una subida de
   tension.
 
-Ambos respetan `prefers-reduced-motion`.
+Los tres respetan `prefers-reduced-motion`.
 
 ## Dos trampas que ya se pagaron
 
 **No animar `opacity` sobre `.mark b` / `.mark i`.** Animar la opacidad de esos
-elementos obliga al navegador a aplanar el 3D de sus hijos, y las letras dejan
-de hundirse: el `translateZ` queda puesto pero sin perspectiva. Por eso el
-apagon del cortocircuito se hace con `color` y `-webkit-text-stroke-color`, que
-no tocan el compositing.
+elementos obliga al navegador a aplanar el 3D, y el hundimiento deja de verse:
+el transform queda puesto pero sin perspectiva. Por eso el apagon del
+cortocircuito se hace con `color` y `-webkit-text-stroke-color`, que no tocan
+el compositing.
 
-**El centinela de "sin cursor" no puede ser una coordenada.** La primera
-version usaba `px = -1e5` para decir "no hay cursor", pero el punto de fuga se
-iba a esa misma coordenada y cualquier `z` residual proyectaba las letras fuera
-de la pantalla: el wordmark explotaba al sacar el mouse. Ahora hay un booleano
-`have` aparte, y el punto de fuga vuelve al centro y se acota a la caja.
+**El centinela de "sin cursor" no puede ser una coordenada.** Una version usaba
+`px = -1e5` para decir "no hay cursor", pero el punto de fuga se iba a esa
+misma coordenada y el wordmark explotaba al sacar el mouse. Hoy hay un booleano
+`have` aparte y todo vuelve a identidad exacta.
 
 El bloque `.mark` es el wordmark **provisorio**, hecho sólo con tipografía
 (Anton). Cuando exista el logo, se reemplaza ese bloque y nada más depende
